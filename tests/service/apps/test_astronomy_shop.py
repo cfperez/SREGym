@@ -92,7 +92,7 @@ def test_ui_fix_coexists_with_upstream_memory_fixes():
     root = yaml.compose(source)
     assert sum(key.value == "components" for key, _ in root.value) == 1
     components = yaml.safe_load(source)["components"]
-    assert {"flagd", "accounting", "ad", "fraud-detection", "kafka"} <= components.keys()
+    assert {"flagd", "accounting", "ad", "fraud-detection", "kafka", "valkey-cart"} <= components.keys()
     assert "@sha256:" in components["accounting"]["imageOverride"]["tag"]
     for name, heap in (("ad", "200m"), ("fraud-detection", "180m")):
         overrides = {env["name"]: env["value"] for env in components[name]["envOverrides"]}
@@ -103,3 +103,5 @@ def test_ui_fix_coexists_with_upstream_memory_fixes():
         assert components[name]["resources"]["limits"]["memory"] == "512Mi"
     assert components["kafka"]["resources"]["requests"]["memory"] == "600Mi"
     assert components["kafka"]["resources"]["limits"]["memory"] == "1Gi"
+    assert components["valkey-cart"]["resources"]["requests"]["memory"] == "20Mi"
+    assert components["valkey-cart"]["resources"]["limits"]["memory"] == "64Mi"
