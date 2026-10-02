@@ -999,3 +999,37 @@ def test_rejected_protocol_upgrade_uses_the_normal_response_path(proxy):
     assert status == 404
     assert headers["Content-Length"] == str(len(response_body))
     assert body == response_body
+
+
+def test_events_for_hidden_workloads_are_filtered_from_lists_and_direct_reads(proxy):
+    loadgen_event = {
+        "metadata": {"name": "load-generator-5d945c566-2lbl4.18a1", "namespace": "astronomy-shop"},
+        "involvedObject": {
+            "apiVersion": "v1",
+            "kind": "Pod",
+            "name": "load-generator-5d945c566-2lbl4",
+            "namespace": "astronomy-shop",
+        },
+        "reason": "Scheduled",
+        "message": "Successfully assigned astronomy-shop/load-generator-5d945c566-2lbl4 to worker",
+    }
+    frontend_event = {
+        "metadata": {"name": "frontend-abc.18a1", "namespace": "astronomy-shop"},
+        "involvedObject": {
+            "apiVersion": "v1",
+            "kind": "Pod",
+            "name": "frontend-abc",
+            "namespace": "astronomy-shop",
+        },
+        "reason": "Scheduled",
+        "message": "Successfully assigned astronomy-shop/frontend-abc to worker",
+    }
+    filtered = filter_resource_list(
+        {"items": [loadgen_event, frontend_event]},
+        hidden_namespaces={"chaos-mesh"},
+        hidden_labels={"app": {"load-generator"}},
+    )
+    assert filtered["items"] == [frontend_event]
+
+    FakeHTTPSConnection.response = FakeResponse(json.dumps(loadgen_event).encode())
+    status, _, _ = request(proxy, "/api/v1/namespaces/astronomy-shop/events/load-generator-5d945c566-2lbl4.18a1")
