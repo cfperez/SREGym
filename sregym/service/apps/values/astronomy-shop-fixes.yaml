@@ -17,6 +17,17 @@ grafana:
       plugins: /opt/grafana/plugins
   env:
     GF_PLUGINS_PREINSTALL_DISABLED: "true"
+  # The chart sets sidecar.resources.limits.cpu=100m, which chronically trips
+  # ContainerCPUThrottling (SREGym#745) and fails the agent's AlertOracle check.
+  # Keep the 100m scheduling request while raising the CFS burst ceiling.
+  sidecar:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 100Mi
+      limits:
+        cpu: 1000m
+        memory: 100Mi
 
 opentelemetry-collector:
   config:
@@ -43,6 +54,17 @@ opentelemetry-collector:
 # ActiveProcessorCount=2 and raise limits.memory to 512Mi while keeping
 # requests.memory at 300Mi so scheduling requests are unchanged.
 components:
+  frontend-proxy:
+    # Envoy's STRICT_DNS defaults to AUTO (IPv6-first). On IPv4 clusters whose
+    # host /etc/resolv.conf includes a search domain where `frontend.<domain>`
+    # has an AAAA record, C-ares walks past `frontend.<ns>.svc.cluster.local`
+    # (NODATA for AAAA) and dials the unreachable external IPv6 address (503 UF,
+    # tripping HighRequestErrorRate). Prefer IPv4 while preserving FRONTEND_HOST.
+    command:
+      - /bin/sh
+      - -c
+      - |
+        envsubst < envoy.tmpl.yaml | sed '/type: STRICT_DNS/a\      dns_lookup_family: V4_PREFERRED' > envoy.yaml && exec envoy -c envoy.yaml
   load-generator:
     # Helm replaces lists. Preserve the sidecar and use the multiarch build
     # of the same upstream v0.5.0 source.
@@ -64,7 +86,14 @@ components:
             cpu: "10m"
           limits:
             memory: "64Mi"
-            cpu: "50m"
+            cpu: "500m"
+  product-catalog:
+    # Wait for PostgreSQL to finish running /docker-entrypoint-initdb.d and bind
+    # TCP 5432 so product-catalog does not crash-restart on initial deployment.
+    initContainers:
+      - name: wait-for-postgresql
+        image: busybox:latest
+        command: ["sh", "-c", "until nc -z -v -w30 postgresql 5432; do echo waiting for postgresql; sleep 2; done;"]
   accounting:
     # The first successful upstream nightly after opentelemetry-demo#2876.
     # Source ebb18186819c510b39d64184d774a527a79e1525 changes only Consumer.cs

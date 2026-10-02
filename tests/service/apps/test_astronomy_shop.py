@@ -91,8 +91,11 @@ def test_ui_fix_coexists_with_upstream_memory_fixes():
     # Duplicate YAML mappings silently discard one side of a merge in safe_load.
     root = yaml.compose(source)
     assert sum(key.value == "components" for key, _ in root.value) == 1
-    components = yaml.safe_load(source)["components"]
-    assert {"flagd", "accounting", "ad", "fraud-detection", "kafka", "valkey-cart"} <= components.keys()
+    parsed = yaml.safe_load(source)
+    components = parsed["components"]
+    assert {
+        "flagd", "frontend-proxy", "accounting", "ad", "fraud-detection", "kafka", "valkey-cart"
+    } <= components.keys()
     assert "@sha256:" in components["accounting"]["imageOverride"]["tag"]
     for name, heap in (("ad", "200m"), ("fraud-detection", "180m")):
         overrides = {env["name"]: env["value"] for env in components[name]["envOverrides"]}
@@ -105,3 +108,8 @@ def test_ui_fix_coexists_with_upstream_memory_fixes():
     assert components["kafka"]["resources"]["limits"]["memory"] == "1Gi"
     assert components["valkey-cart"]["resources"]["requests"]["memory"] == "20Mi"
     assert components["valkey-cart"]["resources"]["limits"]["memory"] == "64Mi"
+    assert "dns_lookup_family: V4_PREFERRED" in components["frontend-proxy"]["command"][2]
+    assert components["load-generator"]["sidecarContainers"][0]["resources"]["limits"]["cpu"] == "500m"
+    assert components["product-catalog"]["initContainers"][0]["name"] == "wait-for-postgresql"
+    assert parsed["grafana"]["sidecar"]["resources"]["requests"]["cpu"] == "100m"
+    assert parsed["grafana"]["sidecar"]["resources"]["limits"]["cpu"] == "1000m"
