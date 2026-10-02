@@ -16,7 +16,7 @@ class LLMAsAJudgeOracle(Oracle):
         url: str | None = None,
         api_key: str | None = None,
         temperature: float = 0.0,
-        max_tokens: int = 4096,
+        max_tokens: int = 16384,
     ):
         super().__init__(problem)
         self.expected = expected if expected else ""

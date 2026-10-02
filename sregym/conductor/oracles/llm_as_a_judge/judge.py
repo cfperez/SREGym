@@ -43,7 +43,7 @@ class LLMJudge:
         url: str | None = None,
         api_key: str | None = None,
         temperature: float = 0.0,
-        max_tokens: int = 4096,
+        max_tokens: int = 16384,
     ):
         self.provider = provider
         self.model_name = model_name
@@ -246,7 +246,7 @@ fences, no preamble, no commentary.
         url: str | None = None,
         api_key: str | None = None,
         temperature: float = 0.0,
-        max_tokens: int = 4096,
+        max_tokens: int = 16384,
         checklist_path: str | None = None,
     ):
         self.provider = provider
